@@ -15,10 +15,19 @@ with margin 1). Output columns are hw_sweep's; only the `*_pid` block is filled
 |---|---|---|---|---|
 | cells (list, margin 1) | 73,981 | 72,948 | 141,240 | 135,211 |
 | rollouts | same | same | same | same |
-| cost @ ~1 s/cell on RM-shared (Mac: 0.75 s) | ~21 SU | ~20 SU | ~39 SU | ~38 SU |
-| wall over 256 tasks | ~5 min | ~5 min | ~10 min | ~9 min |
+| planned @ ~1 s/cell | ~21 SU | ~20 SU | ~39 SU | ~38 SU |
+| **measured 2026-09-09** | **33.9 SU** | **33.6 SU** | **94.6 SU** | **91.3 SU** |
+| measured s/cell | 1.65 | 1.66 | 2.41 | 2.43 |
+| measured wall over 256 tasks | ~8 min | ~8 min | ~23 min | ~23 min |
 
-**Total ≈ 120 SU** (plus per-task start-up; budget 150). Time limit in the script is 2 h.
+**Planned ≈ 120 SU; actual 253.4 SU** — 2.1x, entirely in the per-cell time. A PID
+rollout reads the pose, runs the controller and writes a command on every one of the
+~21,000 steps; the `held` rollouts the `hwact_*` batches were timed from do none of
+that. c3 is cheaper per cell than c4 because COM 1.31 falls earlier and the rollout
+exits sooner, not because it does less work per step.
+
+Take 2.4 s/cell (κ=2) and 1.65 s/cell (κ=0) for the next estimate on RM-shared.
+Time limit in the script is 2 h, which was never close — the longest task ran 23 min.
 
 ## Files (this commit)
 - `pengu_mujoco/grid6/hw_sweep.py`: `HW_CONFIGS` += c3/c4; `HW_TORSO=pid` (PID-only scoring,
@@ -32,7 +41,7 @@ with margin 1). Output columns are hw_sweep's; only the `*_pid` block is filled
 ## Steps on Bridges-2 (login node, via the `psc` tmux session)
 ```bash
 # 1. rebuild the isolated tree from the pushed branch (keeps the old one as pengu_hw_old if you want it)
-cd $PROJECT && mv pengu_hw pengu_hw_cap_prev 2>/dev/null; bash <(curl -fsSL https://raw.githubusercontent.com/BenGu0530/PenguMujoco/friction-experiments/psc/make_run_tree.sh) friction-experiments
+cd $PROJECT && mv pengu_hw pengu_hw_cap_prev 2>/dev/null; bash <(curl -fsSL https://raw.githubusercontent.com/robomechanics/pengu/friction-experiments/psc/make_run_tree.sh) friction-experiments
 #    (or: git clone the branch and run psc/make_run_tree.sh friction-experiments)
 cd $PROJECT/pengu_hw && ls pengu_mujoco/results/grid6_hw/c3 pengu_mujoco/results/grid6_hw/c4 psc/hw_cap.slurm
 
