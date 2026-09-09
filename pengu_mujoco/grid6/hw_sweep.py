@@ -69,7 +69,14 @@ sys.path.insert(0, _HERE)
 sys.path.append(ROOT)
 # hardware-model sweep table (Ben 2026-09-08): every config on its as-built CAD model
 HW_CONFIGS = {"c1": (0.0, "pengu1_05_hw_updated"), "c2": (0.0, "pengu1_20_hw_updated"),
-              "c5": (2.0, "pengu1_20_hw_updated"), "c6": (2.0, "1.31")}
+              "c5": (2.0, "pengu1_20_hw_updated"), "c6": (2.0, "1.31"),
+              # Ben 2026-09-09: c3/c4 with the cap only -- no torso lag, no feedforward, the
+              # kappa PID loop as in GRID-5 (HW_TORSO=pid HW_SERVO_LAG=0, psc/hw_cap.slurm)
+              "c3": (0.0, "1.31"), "c4": (2.0, "pengu1_05_hw_updated")}
+# HW_TORSO: "full" = held + 3 feedforward leads (+ PID for kappa=2), the hardware-layer table;
+#           "pid"  = the kappa PID loop only, for any kappa (held/ff columns left blank)
+HW_TORSO = os.environ.get("HW_TORSO", "full").lower()
+assert HW_TORSO in ("full", "pid"), HW_TORSO
 CONFIG = os.environ.get("CONFIG", "c1").lower()
 assert CONFIG in HW_CONFIGS, f"CONFIG={CONFIG!r} (want {sorted(HW_CONFIGS)})"
 KAPPA, HW_MODEL = HW_CONFIGS[CONFIG]
@@ -84,7 +91,7 @@ from friction_utils import set_floor_friction    # noqa: E402
 # ---------------------------------------------------------------- protocol, stated
 REST_LEAN = 5.0                 # = grid6_sweep.REST_LEAN_DEG
 SETTLE, WINDOW, FS = 2.0, 13.0, 200.0
-SERVO_LAG = 0.056               # measured: corr(J[k], goal[k-2]) = 0.984 at 28 ms/sample
+SERVO_LAG = float(os.environ.get("HW_SERVO_LAG", "0.056"))   # measured: corr(J[k], goal[k-2]) = 0.984 at 28 ms/sample; 0 = no lag
 LEADS = (30.0, 50.0, 70.0)      # deg past the naive cancelling phase
 # The leg servos are modelled rather than fenced off. Cells above the ceiling used to be
 # excluded from the grid, which hid the whole fast half of the space; instead the command
@@ -314,6 +321,16 @@ def blank():
 
 def score(cell, mu):
     f, phi, leg, hip, off = cell
+    if HW_TORSO == "pid":
+        # cap-only table: one rollout, the kappa PID loop; a fall is a row with fell set
+        pid = rollout(f, phi, leg, hip, off, mu, "pid", kappa=KAPPA)
+        row = list(cell) + [mu, float("nan"), float("nan"), float("nan")]
+        for r in (blank(), blank(), pid):
+            for k in ("fell", "v_net", "straight", "clear", "clear_ok", "drift", "rollrms",
+                      "axisrms", "fore", "rearp5", "sat"):
+                v = r.get(k, float("nan"))
+                row.append("" if v is None else (round(v, 4) if isinstance(v, float) else v))
+        return row
     held = rollout(f, phi, leg, hip, off, mu, "held")
     if held.get("fell") is not None:
         return None                       # cannot even stand the gait with a passive torso
@@ -350,7 +367,7 @@ def main():
                     help="csv of freq,hip_phi,leg_amp,hip_amp,hip_off from hw_mask.py; replaces the grid")
     a = ap.parse_args()
     os.makedirs(OUT, exist_ok=True)
-    tag = f"hwact_{CONFIG}_mu{int(round(a.mu * 100)):03d}"
+    tag = f"{'hwcap' if HW_TORSO == 'pid' else 'hwact'}_{CONFIG}_mu{int(round(a.mu * 100)):03d}"
     if a.cells_file:
         with open(a.cells_file) as fh:
             rd = csv.DictReader(fh)
@@ -364,9 +381,13 @@ def main():
         print(f"grid {len(FREQ)}x{len(PHI)}x{len(LEG)}x{len(HIP)}x{len(OFF)} = {full:,}")
         print(f"inside the {CEILING:.0f} deg/s envelope: {len(cl):,} cells")
         npid = 1 if KAPPA != 0.0 else 0
-        print(f"{CONFIG}: kappa={KAPPA} model={HW_MODEL}  torso clamp {TORSO_CLAMP_DEG:.0f}")
-        print(f"rollouts: {len(cl)} x (1 held + {len(LEADS)} ff + {npid} pid) "
-              f"= {len(cl) * (1 + len(LEADS) + npid):,}")
+        print(f"{CONFIG}: kappa={KAPPA} model={HW_MODEL}  torso clamp {TORSO_CLAMP_DEG:.0f}  "
+              f"torso mode {HW_TORSO}  leg cap {LEG_RATE:.0f} deg/s  servo lag {SERVO_LAG*1000:.0f} ms")
+        if HW_TORSO == "pid":
+            print(f"rollouts: {len(cl)} x 1 pid = {len(cl):,}")
+        else:
+            print(f"rollouts: {len(cl)} x (1 held + {len(LEADS)} ff + {npid} pid) "
+                  f"= {len(cl) * (1 + len(LEADS) + npid):,}")
         return
 
     if a.merge:
@@ -408,7 +429,7 @@ def main():
         # above is the one that catches real gaps.
         print(f"{len(rows):,} rows from {len(found)} shards "
               f"(cells whose held rollout fell write no row)")
-        i_v = COLS.index("v_net_ff")
+        i_v = COLS.index("v_net_pid" if HW_TORSO == "pid" else "v_net_ff")
         rows.sort(key=lambda r: -(float(r[i_v]) if r[i_v] not in ("", "nan") else -1))
         with open(os.path.join(OUT, f"{tag}.csv"), "w", newline="") as fh:
             w = csv.writer(fh)

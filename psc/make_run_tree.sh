@@ -25,6 +25,7 @@ git -C "${TMP}" sparse-checkout set --no-cone \
     'pengu_mujoco/results/grid6_hw/filter_cells_c6.csv' \
     'pengu_mujoco/results/grid6_hw/c1/*.csv' 'pengu_mujoco/results/grid6_hw/c2/*.csv' \
     'pengu_mujoco/results/grid6_hw/c5/*.csv' 'pengu_mujoco/results/grid6_hw/c6/*.csv' \
+    'pengu_mujoco/results/grid6_hw/c3/*.csv' 'pengu_mujoco/results/grid6_hw/c4/*.csv' \
     'psc/*.slurm' 'psc/make_run_tree.sh'
 SHA=$(git -C "${TMP}" rev-parse --short HEAD)
 
@@ -36,7 +37,7 @@ cp -r "${TMP}"/models/pengu1_05_hw_updated "${TREE}/models/"
 cp -r "${TMP}"/models/pengu1_20_hw_updated "${TREE}/models/"
 cp -r "${TMP}"/models/pengu1_31            "${TREE}/models/"
 cp "${TMP}"/pengu_mujoco/results/grid6_hw/filter_cells_c6.csv "${TREE}/pengu_mujoco/results/grid6_hw/"
-for c in c1 c2 c5 c6; do
+for c in c1 c2 c3 c4 c5 c6; do
   mkdir -p "${TREE}/pengu_mujoco/results/grid6_hw/${c}"
   cp "${TMP}"/pengu_mujoco/results/grid6_hw/${c}/cells_*.csv "${TREE}/pengu_mujoco/results/grid6_hw/${c}/" 2>/dev/null || true
 done
