@@ -114,8 +114,10 @@ CLEAR_MIN_MM = 10.0             # clear_ok flag threshold; the clear column stay
 CEILING = 1e9                   # no cell is excluded any more
 
 # ---------------------------------------------------------------- the grid
-FREQ = [round(1.20 + 0.02 * k, 2) for k in range(26)]      # 1.20 .. 1.70
-PHI = list(range(200, 310, 10))                            # 200 .. 300
+# Ben 2026-09-10: the torso-capped ladder sweep runs the FULL candidate grid, no GRID-5 pruning, so
+# cells() must be that grid (freq 0.05 step, hip_phi full circle) -- 11 x 36 x 13 x 6 x 5 = 154,440.
+FREQ = [round(1.20 + 0.05 * k, 2) for k in range(11)]      # 1.20 .. 1.70
+PHI = list(range(0, 360, 10))                              # 0 .. 350
 LEG = list(range(70, 135, 5))                              # 70 .. 130
 HIP = [12, 16, 20, 24, 28, 32]
 OFF = [20, 25, 30, 35, 40]                                 # 0/10/50 dropped

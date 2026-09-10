@@ -2,7 +2,8 @@
 # torso-capped PID sweep on Bridges-2 RM-shared (Ben 2026-09-10): grid6/hw_sweep.py with the 354 deg/s
 # velocity cap on the LEGS AND THE TORSO servo, +-4.1 N.m torque cap (in the models), kappa PID torso,
 # no lag, no feedforward; c1..c6 at the GRID-5 friction ladder mu 0.1 / 0.3 / 0.5 / 0.7.
-# One rollout per cell; output hwcapt_<cfg>_mu###.csv (v_net_pid etc.).
+# FULL grid, no GRID-5 pruning (Ben 2026-09-10): 154,440 cells per (config, mu), one rollout each;
+# output hwcapt_<cfg>_mu###.csv (v_net_pid etc.). ~2,100 SU for all 24 (config, mu) pairs.
 #
 #   for c in c1 c2 c3 c4 c5 c6; do for m in 0.1 0.3 0.5 0.7; do sbatch --array=0-255 psc/hw_capt.slurm $c $m; done; done
 #   re-run failed shards: sbatch --array=13,23 psc/hw_capt.slurm c3 0.1 256
@@ -34,10 +35,9 @@ export HW_TORSO_CAP=1
 export OMP_NUM_THREADS=1
 echo "node $(hostname)  task ${SLURM_ARRAY_TASK_ID}/${SLURM_ARRAY_TASK_COUNT}  cfg ${CFG}  mu ${MU}  cap on legs+torso, PID  $(date)"
 
-MUTAG=$(python -c "print(f'{round(float(\"${MU}\")*100):03d}')")     # 0.1 -> 010, 0.45 -> 045
-CELLS="results/grid6_hw/${CFG}/cells_${CFG}_mu${MUTAG}_r1.csv"
-[ -f "${CELLS}" ] && CF=(--cells-file "${CELLS}") || CF=()
-echo "cells: ${CELLS} ($([ -f "${CELLS}" ] && wc -l < "${CELLS}" || echo none))"
+# Ben 2026-09-10: NO cell list -- the full 154,440-cell grid per (config, mu) (hw_sweep.cells()).
+CF=()
+echo "cells: full grid (no GRID-5 pruning)"
 T_START=$(date +%s)
 set +e
 python grid6/hw_sweep.py --mu "${MU}" "${CF[@]}" \
