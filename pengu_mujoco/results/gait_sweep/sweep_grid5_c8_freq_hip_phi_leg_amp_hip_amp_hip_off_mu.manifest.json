@@ -6,7 +6,7 @@
  "base_model": "../models/pengu1_31/scene.xml",
  "base_model_md5": "c5ea11d3196d15b355daac5237e1a680",
  "mujoco_version": "3.8.1",
- "repo_commit": "fc13be6f9fa1ae7e8c3436b62a511f0e8145ef7e",
+ "repo_commit": "1d2eb17d6752fbfcf49f0d644de31a0e58cdb26e",
  "axes": {
   "freq": [
    1.21,
@@ -229,10 +229,10 @@
   "note": "GRID-4-identical execution layer (Ben, 2026-08-26)"
  },
  "provenance": {
-  "note": "c8 slice CSVs pre-seeded with the Mac partial (commit f9664bd): 701,794 rows, ~96% of the hip_off=0 block plus an off=10 sliver, distributed across all 36 phi slices (~19.6k rows each). Rows of mac origin are FP-platform distinct from rml3 rows within the same slice; pass-level statistics are the robust layer (grid5_design.md).",
-  "seeded_at": "2026-09-08 15:35:02",
-  "mac_rows_total": 701794,
-  "source_artifact": "sweep_grid5_c8_PARTIAL_701794_of_4147200_rows.csv.gz"
- },
- "provenance_note": "hip_off=0 block partially seeded from mac PARTIAL run (same grid5-v2 deterministic protocol); per-slice FP-platform mix. phi350 slice had seed/shard duplicate overlap; deduped and gap-filled to 115200 unique rows on rml3 2026-09-10. Merged map verified 4,147,200 unique rows."
+  "note": "Merged from 36 hip_phi slice CSVs. Slice rows: ~19.6k/slice mac-origin (the f9664bd partial covering ~96% of the hip_off=0 block, seeded 2026-09-08) + the remainder computed on rml3 (descending 350->0). FP-platform mix within slices; pass-level statistics are the robust layer (grid5_design.md).",
+  "sources": {
+   "mac": "hip_off=0 block, 701,794 rows via seed",
+   "rml3": "all remaining rows"
+  }
+ }
 }
