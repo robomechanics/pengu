@@ -30,7 +30,9 @@ ROOT = os.path.dirname(_HERE)
 CONFIG = os.environ.get("CONFIG", "c1").lower()
 MAPS = os.path.join(ROOT, "results", "gait_sweep")
 OUT = os.path.join(ROOT, "results", "grid6_hw", CONFIG)
-MAP_MU = {0.12: (0.1, 0.3), 0.45: (0.3, 0.5)}
+MAP_MU = {0.12: (0.1, 0.3), 0.45: (0.3, 0.5),
+          # GRID-5 friction ladder itself (Ben 2026-09-10, torso-capped PID sweep): the map's own mu plus its neighbours
+          0.1: (0.1, 0.3), 0.3: (0.1, 0.3, 0.5), 0.5: (0.3, 0.5, 0.7), 0.7: (0.5, 0.7)}
 STEP = dict(freq=0.02, hip_phi=10.0, leg_amp=10.0, hip_amp=4.0, hip_off=10.0)
 
 # candidate grid (union of everything on the table)

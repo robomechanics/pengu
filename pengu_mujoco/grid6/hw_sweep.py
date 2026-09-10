@@ -77,6 +77,9 @@ HW_CONFIGS = {"c1": (0.0, "pengu1_05_hw_updated"), "c2": (0.0, "pengu1_20_hw_upd
 #           "pid"  = the kappa PID loop only, for any kappa (held/ff columns left blank)
 HW_TORSO = os.environ.get("HW_TORSO", "full").lower()
 assert HW_TORSO in ("full", "pid"), HW_TORSO
+# HW_TORSO_CAP=1 (Ben 2026-09-10): the torso servo gets the same LEG_RATE velocity cap as the legs
+# (its +-4.1 N.m torque cap is in every model's forcerange already). Output tag hwcapt_.
+HW_TORSO_CAP = os.environ.get("HW_TORSO_CAP", "0") == "1"
 CONFIG = os.environ.get("CONFIG", "c1").lower()
 assert CONFIG in HW_CONFIGS, f"CONFIG={CONFIG!r} (want {sorted(HW_CONFIGS)})"
 KAPPA, HW_MODEL = HW_CONFIGS[CONFIG]
@@ -165,7 +168,7 @@ def rollout(freq, phi, leg, hip, off, mu, mode, A=0.0, ph=0.0, kappa=0.0):
     act, jadr = gc.build_ids(model)
     gc.set_initial_pose(model, data, act, jadr)
     floor_id, foot_geom, foot_bid, root = gs.make_ids(model)
-    legs = [act[n] for n in ("crank1-L", "crank1-R", "hip-L", "hip-R")]
+    legs = [act[n] for n in ("crank1-L", "crank1-R", "hip-L", "hip-R")] + ([act["torso"]] if HW_TORSO_CAP else [])
     slew = math.radians(LEG_RATE) * model.opt.timestep
     a_lp = model.opt.timestep / (model.opt.timestep + LEG_TAU)
     held_cmd = None
@@ -367,7 +370,7 @@ def main():
                     help="csv of freq,hip_phi,leg_amp,hip_amp,hip_off from hw_mask.py; replaces the grid")
     a = ap.parse_args()
     os.makedirs(OUT, exist_ok=True)
-    tag = f"{'hwcap' if HW_TORSO == 'pid' else 'hwact'}_{CONFIG}_mu{int(round(a.mu * 100)):03d}"
+    tag = f"{('hwcapt' if HW_TORSO_CAP else 'hwcap') if HW_TORSO == 'pid' else 'hwact'}_{CONFIG}_mu{int(round(a.mu * 100)):03d}"
     if a.cells_file:
         with open(a.cells_file) as fh:
             rd = csv.DictReader(fh)
@@ -382,7 +385,7 @@ def main():
         print(f"inside the {CEILING:.0f} deg/s envelope: {len(cl):,} cells")
         npid = 1 if KAPPA != 0.0 else 0
         print(f"{CONFIG}: kappa={KAPPA} model={HW_MODEL}  torso clamp {TORSO_CLAMP_DEG:.0f}  "
-              f"torso mode {HW_TORSO}  leg cap {LEG_RATE:.0f} deg/s  servo lag {SERVO_LAG*1000:.0f} ms")
+              f"torso mode {HW_TORSO}  leg cap {LEG_RATE:.0f} deg/s{' (torso too)' if HW_TORSO_CAP else ''}  servo lag {SERVO_LAG*1000:.0f} ms")
         if HW_TORSO == "pid":
             print(f"rollouts: {len(cl)} x 1 pid = {len(cl):,}")
         else:

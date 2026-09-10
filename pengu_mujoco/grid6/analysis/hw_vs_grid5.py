@@ -33,7 +33,11 @@ import load5                                     # noqa: E402
 import style5                                    # noqa: E402
 import matplotlib.pyplot as plt                  # noqa: E402
 
-HW_DIR = os.environ.get("HW_DIR", os.path.join(os.path.dirname(ROOT), "..", "PenguMujoco_psc", "g6"))
+# where the PSC results were copied to: hwact_* (hardware layers, ff) under g6, hwcap_* (cap-only, pid) under g6cap
+HW_DIRS = [os.environ["HW_DIR"]] if "HW_DIR" in os.environ else [
+    os.path.join(os.path.dirname(ROOT), "..", "PenguMujoco_psc", "g6"),
+    os.path.join(os.path.dirname(ROOT), "..", "PenguMujoco_psc", "g6cap")]
+HW_DIR = HW_DIRS[0]
 OUT = os.path.join(ROOT, "results", "grid6_hw", "figs")
 CFGS = ["c1", "c2", "c5", "c6"]
 HW_MU = [0.12, 0.45]
@@ -44,16 +48,25 @@ RANGE = dict(freq=(1.20, 1.70), leg_amp=(70, 130), hip_off=(20, 40))      # hw s
 THRESH, TOP = 0.8, 20
 
 
-def hw_file(cfg, mu):
-    hits = sorted(glob.glob(os.path.join(HW_DIR, "**", f"hwact_{cfg}_mu{int(round(mu*100)):03d}.csv"), recursive=True))
-    if not hits:
-        raise FileNotFoundError(f"hwact_{cfg}_mu{mu} under {HW_DIR}")
-    return hits[0]
+def hw_file(cfg, mu, prefix="hwact"):
+    """merged sweep csv: prefix 'hwact' (cap + lag + feedforward, columns *_ff) or 'hwcap' (cap only, *_pid)"""
+    name = f"{prefix}_{cfg}_mu{int(round(mu*100)):03d}.csv"
+    for d in HW_DIRS:
+        hits = sorted(glob.glob(os.path.join(d, "**", name), recursive=True))
+        if hits:
+            return hits[0]
+    raise FileNotFoundError(f"{name} under {HW_DIRS}")
 
 
-def hw_planes(cfg, mu, mode="ff"):
-    """dense (freq, phi, leg, hip, off) planes: pass (0/1, NaN = not evaluated) and v_net"""
-    d = pd.read_csv(hw_file(cfg, mu))
+def prefix_for(mode):
+    return "hwcap" if mode == "pid" else "hwact"
+
+
+def hw_planes(cfg, mu, mode="ff", prefix=None):
+    """dense (freq, phi, leg, hip, off) planes: pass (0/1, NaN = not evaluated) and v_net.
+    mode 'ff' reads the hardware-layer table (hwact), 'pid' the cap-only table (hwcap) unless
+    prefix says otherwise (the hwact table also carries a *_pid block for kappa=2)."""
+    d = pd.read_csv(hw_file(cfg, mu, prefix or prefix_for(mode)))
     lst = pd.read_csv(os.path.join(ROOT, "results", "grid6_hw", cfg, f"cells_{cfg}_mu{int(round(mu*100)):03d}_r1.csv"))
     shape = tuple(len(HW_AX[k]) for k in HW_AX)
     idx = lambda df: tuple(np.searchsorted(HW_AX[k], df[k].round(2).values) for k in HW_AX)
