@@ -19,6 +19,8 @@ Compiling without the IDE, which is also how these are checked before flashing:
 | sketch | what it is |
 |---|---|
 | `pengu_tune_wifi/` | **the firmware.** Hand-tuning over WiFi, the on-board recorder, the torso strategies, the plant probe. Everything below is a bench tool. |
+| `pengu_hw_c3/` `pengu_hw_c4/` | same, from the **cap-only** sweep (354 deg/s cap, κ PID torso, no lag / no FF modelled; `psc/hw_cap.slurm`). Boot into the PID torso; preset `1` = μ 0.12, `2` = μ 0.45. c3 κ0 COM 1.31, c4 κ2 COM 1.05. |
+| `pengu_hw_c1/` `pengu_hw_c2/` `pengu_hw_c5/` `pengu_hw_c6/` | **pengu_tune_wifi with one config's champions baked in** (2026-09-09, GRID-6 hardware-model sweep: 354 deg/s cap, 56 ms, feedforward torso, CAD models; robust-neighbourhood + 10 mm clearance filters). `KAPPA` and the boot gait are set per config; preset `1` = μ 0.12 champion, `2` = μ 0.45 champion, `3` = the torso calibration gait. Set the ballast for the config's COM ratio (c1 1.05, c2 1.20, c5 1.20, c6 1.31) before walking. |
 | `imu_probe/` | BNO055 read-out and calibration status |
 | `motor_probe/` | Dynamixel scan, ping, single-joint moves |
 | `hip_probe/` | hip range and zero check |
