@@ -98,7 +98,9 @@ def apply_com_variant(model, target):
     return got
 
 
-def rollout(cell, mu, kappa, hw):
+def rollout(cell, mu, kappa, hw, cap=False):
+    """hw: cap 354 + 56 ms lag + feedforward torso (hw_sweep table); cap: 354 deg/s cap on legs AND
+    torso, kappa PID, no lag (GRID-7 physics); neither: ideal actuators (GRID-5 physics)"""
     freq, phi, leg, hip, off = cell
     model = mujoco.MjModel.from_xml_path(gs.XML)
     if COM_TARGET is not None:
@@ -108,7 +110,7 @@ def rollout(cell, mu, kappa, hw):
     gs.STAGED_START = True
     gc.STAND_HIP_DEG = 0.0
     pid = TorsoKappaPID(model, kappa=kappa, measure_after=0.0,
-                        ctrl_limit_deg=45.0 if kappa else (25.0 if hw else 45.0))
+                        ctrl_limit_deg=45.0 if kappa else (25.0 if (hw or cap) else 45.0))
     gc.STAND_HIP_DEG = REST_LEAN
     set_floor_friction(model, mu)
     gs.FLOOR_MU = mu
@@ -117,7 +119,7 @@ def rollout(cell, mu, kappa, hw):
     act, jadr = gc.build_ids(model)
     gc.set_initial_pose(model, data, act, jadr)
     floor_id, foot_geom, foot_bid, root = gs.make_ids(model)
-    legs = [act[n] for n in ("crank1-L", "crank1-R", "hip-L", "hip-R")]
+    legs = [act[n] for n in ("crank1-L", "crank1-R", "hip-L", "hip-R")] + ([act["torso"]] if cap else [])
     tid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, "easytorso")
     mass = model.body_mass[1:]
     mtot = float(mass.sum())
@@ -170,8 +172,12 @@ def rollout(cell, mu, kappa, hw):
 
     gc.T_HOLD = 1e9
     t0, nxt = None, 0.0
-    log = dict(t=[], com=[], tcom=[], fn=[], cop=[], grf=[], troll=[], aroll=[], fpos=[], fmat=[], tpitch=[])
+    log = dict(t=[], com=[], tcom=[], fn=[], cop=[], grf=[], troll=[], aroll=[], fpos=[], fmat=[], tpitch=[],
+               ncon=[], pen=[], steps=[], nofoot_steps=[], e_pos=[], ryaw=[])
     fell = None
+    foot_ids = np.array(list(foot_geom))
+    steps = nofoot = 0                                # physics steps since the last log sample / of those, steps with no foot-floor contact
+    e_pos = 0.0                                       # positive mechanical actuator work since the window opened, J (as gait_sweep: servos do not regenerate)
     while True:
         if t0 is None:
             tt = data.time
@@ -180,7 +186,7 @@ def rollout(cell, mu, kappa, hw):
                 t0 = tt
                 gc.T_HOLD = tt
         gc.apply_ctrl(data, act, data.time)
-        if hw:
+        if hw or cap:
             cur = np.array([data.ctrl[i] for i in legs])
             if held_cmd is None:
                 held_cmd = cur.copy()
@@ -198,10 +204,17 @@ def rollout(cell, mu, kappa, hw):
             continue
         if tw > WINDOW:
             break
+        steps += 1
+        e_pos += float(np.sum(np.maximum(data.qfrc_actuator * data.qvel, 0.0))) * model.opt.timestep
+        nc = data.ncon
+        if nc == 0 or not (np.isin(data.contact.geom1[:nc], foot_ids) | np.isin(data.contact.geom2[:nc], foot_ids)).any():
+            nofoot += 1
         if data.time < nxt:
             continue
         nxt = data.time + 1.0 / FS
         fn = {"L": 0.0, "R": 0.0}
+        ncon = {"L": 0, "R": 0}
+        pen = {"L": 0.0, "R": 0.0}                    # deepest floor penetration of the foot this step, m (>= 0)
         cop = {"L": np.zeros(3), "R": np.zeros(3)}
         grf = {"L": np.zeros(3), "R": np.zeros(3)}
         for ci in range(data.ncon):
@@ -218,6 +231,8 @@ def rollout(cell, mu, kappa, hw):
                 fw = -fw
             n = abs(float(fv[0]))
             fn[s] += n
+            ncon[s] += 1
+            pen[s] = max(pen[s], -float(c.dist))
             cop[s] += n * c.pos
             grf[s] += fw
         for s in ("L", "R"):
@@ -227,6 +242,14 @@ def rollout(cell, mu, kappa, hw):
         log["com"].append((data.xipos[1:] * mass[:, None]).sum(0) / mtot)
         log["tcom"].append(data.xipos[tid].copy())
         log["fn"].append([fn["L"], fn["R"]])
+        log["ncon"].append([ncon["L"], ncon["R"]])
+        log["pen"].append([pen["L"], pen["R"]])
+        log["steps"].append(steps)
+        log["nofoot_steps"].append(nofoot)
+        log["e_pos"].append(e_pos)
+        Rr = data.xmat[root].reshape(3, 3)
+        log["ryaw"].append(math.atan2(Rr[1, 1], Rr[0, 1]))     # body forward (root +y) heading in the world, rad
+        steps = nofoot = 0
         log["cop"].append([cop["L"], cop["R"]])
         log["grf"].append([grf["L"], grf["R"]])
         log["fpos"].append([data.xpos[b].copy() for s_ in ("L", "R") for b, ss in foot_bid.items() if ss == s_])

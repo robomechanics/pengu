@@ -41,12 +41,12 @@ def bar_style(c):
                 hatch="" if k == 0.0 else "//"), style5.COM_MK[com], col
 
 
-def demand_mask(c, mu, mode, max_over, max_rate, max_limit=None, margin=0):
+def demand_mask(c, mu, mode, max_over, max_rate, max_limit=None, margin=0, prefix=None):
     """dense boolean plane of cells under the motor-demand bar (motor_demand.py), or None"""
     if max_over is None and max_rate is None and max_limit is None:
         return None
     import motor_demand as M
-    d = M.robust_clear(c, mu, mode)
+    d = M.robust_clear(c, mu, mode, prefix)
     ok = np.ones(len(d), bool)
     if max_over is not None:
         ok &= (d.over_frac_any <= max_over + 1e-9).values

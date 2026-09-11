@@ -54,8 +54,10 @@ SETTLE = 2.0
 FN_MIN = 2.0
 ARROW_M = 0.15                                   # one body weight of force = this many metres
 REST_LEAN = 5.0
-OUT = os.path.join(ROOT, "results", "grid6_probes")
-CAMS = ((0.85, -10, 0), (0.95, -28, 50))         # (distance, elevation, azimuth OFFSET from the robot heading): rear, rear-left (image right = robot right)
+OUT = os.environ.get("RF_OUT", os.path.join(ROOT, "results", "grid6_probes"))
+CAMS = ((0.85, -10, 0, 0.16), (0.95, -28, 50, 0.16))   # (distance, elevation, azimuth OFFSET from the robot heading, lookat height): rear, rear-left (image right = robot right)
+if "RF_CAMS" in os.environ:                       # e.g. RF_CAMS="0.85,-10,0,0.16;0.9,-1,0,0.05" = rear as usual + rear from floor level
+    CAMS = tuple(tuple(float(x) for x in c.split(",")) for c in os.environ["RF_CAMS"].split(";"))
 BODY_ALPHA = float(os.environ.get("BODY_ALPHA", "0.35"))                                # robot meshes drawn translucent so the markers show
 RGBA = dict(grf=(0.15, 0.65, 0.15, 0.9), com=(0.85, 0.1, 0.1, 1.0), grav=(0.85, 0.1, 0.1, 0.8),
             drop=(0.85, 0.1, 0.1, 0.5), tcom=(0.45, 0.45, 0.45, 1.0), cop=(0.1, 0.1, 0.1, 1.0),
@@ -124,7 +126,7 @@ class Arm:
         self.model.geom_rgba[:, 3] = np.where(self.model.geom_rgba[:, 3] > 0, BODY_ALPHA, 0.0)
         self.model.geom_rgba[self.floor_id, 3] = 1.0
         self.cams = []
-        for dist, el, az in CAMS:
+        for dist, el, az, _ in CAMS:
             c = mujoco.MjvCamera()
             c.type = mujoco.mjtCamera.mjCAMERA_FREE
             c.distance, c.elevation, c.azimuth = dist, el, az
@@ -222,9 +224,9 @@ class Arm:
                        dcmp=float(np.linalg.norm((cmp_ - cop_t)[:2])), v=float(np.linalg.norm(v)))
         R = self.data.xmat[self.root].reshape(3, 3)
         heading = math.degrees(math.atan2(R[1, 1], R[0, 1]))   # body +y in the world: camera azimuth = heading looks ALONG the walk, i.e. from behind
-        for cam, (_, _, off) in zip(self.cams, CAMS):
+        for cam, (_, _, off, zlook) in zip(self.cams, CAMS):
             cam.lookat[:] = self.data.xpos[self.root]
-            cam.lookat[2] = 0.16
+            cam.lookat[2] = zlook
             cam.azimuth = heading + off
             ren.update_scene(self.data, cam)
             scn = ren.scene
@@ -343,8 +345,10 @@ def main():
     path = os.path.join(OUT, tag + ".mp4")
     imageio.mimsave(path, frames, fps=FPS, macro_block_size=1)
     print(f"{len(frames)} frames -> {path}")
+    SNAP_OUT = os.environ.get("RF_SNAP_OUT", OUT)          # screenshots can go to a separate folder (Ben 2026-09-11)
+    os.makedirs(SNAP_OUT, exist_ok=True)
     for (kappa, s), img in sorted(snaps.items()):
-        p = os.path.join(OUT, f"{tag}_k{kappa:g}_{s}stance.png")
+        p = os.path.join(SNAP_OUT, f"{tag}_k{kappa:g}_{s}stance.png")
         imageio.imwrite(p, img)
         print(f"  snapshot {p}")
     for arm in arms:

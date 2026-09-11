@@ -30,21 +30,24 @@ def main():
     ap.add_argument("--mode", default="pid", choices=["ff", "pid"])
     ap.add_argument("--configs", nargs="*", default=["c1", "c2", "c3", "c4", "c5", "c6"])
     ap.add_argument("--top", type=int, default=3)
+    ap.add_argument("--prefix", default=None, help="hwact | hwcap | hwcapt (default from --mode)")
+    ap.add_argument("--mus", nargs="*", type=float, default=None, help="default hw_vs_grid5.HW_MU; GRID-7: 0.1 0.3 0.5 0.7")
     ap.add_argument("--max-over-frac", type=float, default=None, help="drop cells whose over-cap cycle fraction exceeds this (0..1)")
     ap.add_argument("--max-rate-mean", type=float, default=None, help="drop cells whose cycle-mean crank rate exceeds this [deg/s]")
     ap.add_argument("--max-limit-frac", type=float, default=None, help="drop cells whose leg servos sit AT the cap for more than this fraction of the cycle (0..1)")
     ap.add_argument("--bar-margin", type=int, default=0, help="rescue over-the-bar cells within this many lattice steps of an under-the-bar one (buffer zone, as hw_mask)")
     a = ap.parse_args()
-    tag = f"{H.prefix_for(a.mode)}_champions" + (f"_over{a.max_over_frac*100:.0f}" if a.max_over_frac is not None else "") \
+    prefix = a.prefix or H.prefix_for(a.mode)
+    tag = f"{prefix}_champions" + (f"_over{a.max_over_frac*100:.0f}" if a.max_over_frac is not None else "") \
         + (f"_rate{a.max_rate_mean:.0f}" if a.max_rate_mean is not None else "") + (f"_limit{a.max_limit_frac*100:.0f}" + (f"m{a.bar_margin}" if a.bar_margin else "") if a.max_limit_frac is not None else "")
     cols = [f"{k}_{a.mode}" for k in ("v_net", "straight", "clear", "rollrms", "axisrms", "sat", "drift")]
     if a.mode == "ff":
         cols = ["A0", "phi0", "best_lead"] + cols
     out = {}
     for c in a.configs:
-        for mu in H.HW_MU:
+        for mu in (a.mus or H.HW_MU):
             try:
-                d = M.robust_clear(c, mu, a.mode)
+                d = M.robust_clear(c, mu, a.mode, prefix)
             except FileNotFoundError as e:
                 print(f"  skip {c} mu{mu}: {e}"); continue
             m = d.rc.copy()

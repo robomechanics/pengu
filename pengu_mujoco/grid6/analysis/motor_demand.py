@@ -134,10 +134,11 @@ def bar_mask(df, bar=0.75, margin=1, col="limit_frac_any"):
     return pd.Series(out[idx], index=df.index)
 
 
-def robust_clear(cfg, mu, mode):
+def robust_clear(cfg, mu, mode, prefix=None):
     """the hw table with pass / robust / clear flags and the demand columns"""
-    d = pd.read_csv(H.hw_file(cfg, mu, H.prefix_for(mode)))
-    pas, v = H.hw_planes(cfg, mu, mode)
+    prefix = prefix or H.prefix_for(mode)
+    d = pd.read_csv(H.hw_file(cfg, mu, prefix))
+    pas, v = H.hw_planes(cfg, mu, mode, prefix)
     nb = H.nbhd_hw(pas)
     d["nb"] = nb[tuple(np.searchsorted(H.HW_AX[k], d[k].round(2).values) for k in KEYS)]
     d["pass"] = d[f"v_net_{mode}"].notna() & d[f"fell_{mode}"].isna() & (d[f"v_net_{mode}"] > 0.05) & (d[f"straight_{mode}"] > 0.5)

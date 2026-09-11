@@ -36,7 +36,8 @@ import matplotlib.pyplot as plt                  # noqa: E402
 # where the PSC results were copied to: hwact_* (hardware layers, ff) under g6, hwcap_* (cap-only, pid) under g6cap
 HW_DIRS = [os.environ["HW_DIR"]] if "HW_DIR" in os.environ else [
     os.path.join(os.path.dirname(ROOT), "..", "PenguMujoco_psc", "g6"),
-    os.path.join(os.path.dirname(ROOT), "..", "PenguMujoco_psc", "g6cap")]
+    os.path.join(os.path.dirname(ROOT), "..", "PenguMujoco_psc", "g6cap"),
+    os.path.join(os.path.dirname(ROOT), "..", "PenguMujoco_psc", "g6capt")]     # GRID-7: hwcapt_*, full grid, mu ladder
 HW_DIR = HW_DIRS[0]
 OUT = os.path.join(ROOT, "results", "grid6_hw", "figs")
 CFGS = ["c1", "c2", "c5", "c6"]
@@ -66,12 +67,16 @@ def hw_planes(cfg, mu, mode="ff", prefix=None):
     """dense (freq, phi, leg, hip, off) planes: pass (0/1, NaN = not evaluated) and v_net.
     mode 'ff' reads the hardware-layer table (hwact), 'pid' the cap-only table (hwcap) unless
     prefix says otherwise (the hwact table also carries a *_pid block for kappa=2)."""
-    d = pd.read_csv(hw_file(cfg, mu, prefix or prefix_for(mode)))
-    lst = pd.read_csv(os.path.join(ROOT, "results", "grid6_hw", cfg, f"cells_{cfg}_mu{int(round(mu*100)):03d}_r1.csv"))
+    prefix = prefix or prefix_for(mode)
+    d = pd.read_csv(hw_file(cfg, mu, prefix))
     shape = tuple(len(HW_AX[k]) for k in HW_AX)
     idx = lambda df: tuple(np.searchsorted(HW_AX[k], df[k].round(2).values) for k in HW_AX)
     pas = np.full(shape, np.nan)
-    pas[idx(lst)] = 0.0                                   # evaluated (HELD-fell rows are absent from the CSV)
+    if prefix == "hwcapt":                                # GRID-7 ran the full grid: every row is an evaluated cell
+        pas[idx(d)] = 0.0
+    else:
+        lst = pd.read_csv(os.path.join(ROOT, "results", "grid6_hw", cfg, f"cells_{cfg}_mu{int(round(mu*100)):03d}_r1.csv"))
+        pas[idx(lst)] = 0.0                               # evaluated (HELD-fell rows are absent from the CSV)
     v = np.full(shape, np.nan)
     ok = d[f"v_net_{mode}"].notna() & (d[f"fell_{mode}"].isna()) & (d[f"v_net_{mode}"] > 0.05) & (d[f"straight_{mode}"] > 0.5)
     pas[idx(d[ok])] = 1.0
