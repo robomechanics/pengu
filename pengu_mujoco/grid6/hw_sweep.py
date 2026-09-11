@@ -117,6 +117,13 @@ CEILING = 1e9                   # no cell is excluded any more
 # Ben 2026-09-10: the torso-capped ladder sweep runs the FULL candidate grid, no GRID-5 pruning, so
 # cells() must be that grid (freq 0.05 step, hip_phi full circle) -- 11 x 36 x 13 x 6 x 5 = 154,440.
 FREQ = [round(1.20 + 0.05 * k, 2) for k in range(11)]      # 1.20 .. 1.70
+# HW_FREQ="1.75:2.00:0.05" (Ben 2026-09-11): replace the frequency axis, e.g. the high-frequency extension of GRID-7
+# (the GRID-5 low-impact c6 ice gaits sit at 1.8-1.98 Hz, above the 1.70 Hz edge). Output tag gets HW_TAG_SUFFIX
+# (e.g. "_hi") so the shard / merged files never collide with the base sweep's.
+if os.environ.get("HW_FREQ"):
+    _lo, _hi, _st = (float(x) for x in os.environ["HW_FREQ"].split(":"))
+    FREQ = [round(_lo + _st * k, 2) for k in range(int(round((_hi - _lo) / _st)) + 1)]
+TAG_SUFFIX = os.environ.get("HW_TAG_SUFFIX", "")
 PHI = list(range(0, 360, 10))                              # 0 .. 350
 LEG = list(range(70, 135, 5))                              # 70 .. 130
 HIP = [12, 16, 20, 24, 28, 32]
@@ -372,7 +379,7 @@ def main():
                     help="csv of freq,hip_phi,leg_amp,hip_amp,hip_off from hw_mask.py; replaces the grid")
     a = ap.parse_args()
     os.makedirs(OUT, exist_ok=True)
-    tag = f"{('hwcapt' if HW_TORSO_CAP else 'hwcap') if HW_TORSO == 'pid' else 'hwact'}_{CONFIG}_mu{int(round(a.mu * 100)):03d}"
+    tag = f"{('hwcapt' if HW_TORSO_CAP else 'hwcap') if HW_TORSO == 'pid' else 'hwact'}_{CONFIG}_mu{int(round(a.mu * 100)):03d}{TAG_SUFFIX}"
     if a.cells_file:
         with open(a.cells_file) as fh:
             rd = csv.DictReader(fh)
