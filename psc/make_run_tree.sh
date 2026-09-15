@@ -26,6 +26,7 @@ git -C "${TMP}" sparse-checkout set --no-cone \
     'pengu_mujoco/results/grid6_hw/c1/*.csv' 'pengu_mujoco/results/grid6_hw/c2/*.csv' \
     'pengu_mujoco/results/grid6_hw/c5/*.csv' 'pengu_mujoco/results/grid6_hw/c6/*.csv' \
     'pengu_mujoco/results/grid6_hw/c3/*.csv' 'pengu_mujoco/results/grid6_hw/c4/*.csv' \
+    'pengu_mujoco/results/grid7_report/data/walker_cells_grid7/*.csv.gz' \
     'psc/*.slurm' 'psc/make_run_tree.sh'
 SHA=$(git -C "${TMP}" rev-parse --short HEAD)
 
@@ -41,6 +42,14 @@ for c in c1 c2 c3 c4 c5 c6; do
   mkdir -p "${TREE}/pengu_mujoco/results/grid6_hw/${c}"
   cp "${TMP}"/pengu_mujoco/results/grid6_hw/${c}/cells_*.csv "${TREE}/pengu_mujoco/results/grid6_hw/${c}/" 2>/dev/null || true
 done
+# GRID-7 ext sweep (2026-09-15): the 24 walker cell lists travel gzipped in git (4.7 MB) and are
+# unpacked here, where psc/hw_ext.slurm expects them as plain .csv.
+W="pengu_mujoco/results/grid7_report/data/walker_cells_grid7"
+if ls "${TMP}/${W}"/*.csv.gz >/dev/null 2>&1; then
+  mkdir -p "${TREE}/${W}"
+  cp "${TMP}/${W}"/*.csv.gz "${TREE}/${W}/" && gunzip -f "${TREE}/${W}"/*.csv.gz
+  ls "${TREE}/${W}"/*.csv | wc -l | xargs echo "walker cell lists:"
+fi
 cp "${TMP}"/psc/*.slurm "${TMP}"/psc/make_run_tree.sh "${TREE}/psc/"
 rm -rf "${TMP}"
 
