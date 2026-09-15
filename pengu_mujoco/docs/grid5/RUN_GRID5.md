@@ -167,3 +167,33 @@ then), then the selection chain (three champion tracks T-speed/T-cot/T-slip,
 independent-seed confirmation, neighborhood fine scan) via `grid5/grid5_select.py`
 (to be written before analysis begins — see grid5_design.md). Robust-region reporting is four-tier: surv-only / pass / strict
 heading>=0.9 / clean-pass slip<=0.05, all recomputable from the saved records.
+
+## CAMPAIGN COMPLETE — 2026-09-12
+
+All ten GRID-5 maps are shipped to `friction-experiments` as canonical
+`sweep_grid5_cN_*.csv.gz.part*` + manifest (reassemble: `cat parts > gz`).
+Final three ship commits: c8 267c282 (09-10), c9 90ba108 (09-10), c7 608e420 (09-12).
+Every map passed the full battery at ship time (row/marginal/gate/fall-phase checks,
+0 violations). Battery mu-summaries from the final three:
+
+  c7 (k0 com1.10): surv 93.4/90.9/72.0/55.8 %  pass 11.2/20.1/12.4/6.7 %   (mu .1/.3/.5/.7)
+  c8 (k0 com1.40): surv 32.7/24.7/12.0/ 9.2 %  pass  5.2/ 5.1/ 1.0/0.4 %
+  c9 (k2 com1.10): surv 68.1/70.9/65.8/58.5 %  pass 19.8/23.2/10.4/7.4 %
+
+c7 was assembled from 36 per-phi slices across three machines (ownership + handoff
+history: `results/gait_sweep/c7_OWNERSHIP.txt`; provenance in the canonical manifest).
+c8's manifest records the mac partial seeding + the phi350 dedup/gap-fill.
+
+Ops lessons added this week:
+- A slice "complete" by LINE count can still be short on UNIQUE keys (seed injected
+  while shards ran duplicates rows). Always audit `cut -d, -f1-6 | sort -u | wc -l`
+  == 115,200 per slice before merging. (Bit c8 phi350; re-checked everywhere since.)
+- Never let two governors run on one machine: `stopall` pkills every slice_phi on the
+  host, so concurrent governors fight (kill/relaunch livelock) and can duplicate rows.
+  Chain a waiter (`while pgrep governor; do sleep; done; exec new-governor`) instead.
+- `pgrep -c -f X || echo 0` emits "0\n0" when nothing matches (pgrep prints 0 AND
+  fails) — numeric tests then silently fail. Drop the `|| echo 0`.
+- SHARDS_* control files are shared per machine: a paused (=0) file left by one range
+  freezes the next range's governor. Check `cat SHARDS_*` when shards mysteriously
+  stop; 0 may also be a deliberate manual pause (respect it — ask before overriding).
+- rml3's address changed after its 09-11 reboot: now rml3@172.24.49.235.

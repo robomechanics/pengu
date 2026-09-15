@@ -1,0 +1,10 @@
+# c7 phi-slice ownership at merge time (updated 2026-09-12 evening, after rml3 pause)
+# Collect each slice from the machine listed here. Files named *.handoff_to_* are
+# stale partials/seeds — do NOT merge them.
+rml2   (local)                : phi 150-240
+rml3   (172.24.49.235)        : phi 250-350  AND  phi 130,140
+naomio (172.26.35.77)         : phi 000-120  (phi120 taken over from rml3 2026-09-12
+                                 evening at 44,701 rows, after rml3 was paused via
+                                 SHARDS_RML3=0 for user3's RL training; chain-launches
+                                 after phi110 completes)
+# merge check per slice: 115,200 UNIQUE keys (line counts alone can hide dups).
